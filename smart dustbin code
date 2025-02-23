@@ -1,0 +1,100 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <Servo.h>
+
+// Pin Definitions
+#define TRIG_PIN 7
+#define ECHO_PIN 6
+#define PIR_PIN 8
+#define SERVO_PIN 9
+#define BUZZER_PIN 10
+#define LED_PIN 11
+
+// LCD Initialization
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// Servo Motor
+Servo servo;
+
+// Function to measure distance using Ultrasonic Sensor
+long getDistance() {
+    digitalWrite(TRIG_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN, LOW);
+    
+    long duration = pulseIn(ECHO_PIN, HIGH);
+    long distance = duration * 0.034 / 2;  // Convert to cm
+    return distance;
+}
+
+void setup() {
+    // Initialize Serial Monitor
+    Serial.begin(9600);
+
+    // Initialize LCD
+    lcd.begin(16, 2);
+    lcd.backlight();
+    lcd.setCursor(0, 0);
+    lcd.print("  Waste System ");
+    delay(2000);
+    lcd.clear();
+
+    // Set Pin Modes
+    pinMode(TRIG_PIN, OUTPUT);
+    pinMode(ECHO_PIN, INPUT);
+    pinMode(PIR_PIN, INPUT);
+    pinMode(BUZZER_PIN, OUTPUT);
+    pinMode(LED_PIN, OUTPUT);
+    
+    // Initialize Servo
+    servo.attach(SERVO_PIN);
+    servo.write(0); // Set initial position
+}
+
+void loop() {
+    long distance = getDistance();
+    bool pirDetected = digitalRead(PIR_PIN);
+
+    if (distance < 10 && pirDetected) {
+        // Both plastic & dry waste detected → Pay Fine
+        servo.write(0); // Keep servo OFF
+        digitalWrite(BUZZER_PIN, HIGH); // Buzzer ON
+        digitalWrite(LED_PIN, LOW); // LED OFF
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Plastic & Dry");
+        lcd.setCursor(0, 1);
+        lcd.print("Pay Fine!");
+    }
+    else if (distance < 10) {
+        // Plastic Waste Added
+        servo.write(90); // Rotate servo
+        digitalWrite(LED_PIN, HIGH); // LED ON
+        digitalWrite(BUZZER_PIN, LOW); // Buzzer OFF
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Plastic is added");
+    }
+    else if (pirDetected) {
+        // Dry Waste Added
+        servo.write(90); // Rotate servo
+        digitalWrite(LED_PIN, HIGH); // LED ON
+        digitalWrite(BUZZER_PIN, LOW); // Buzzer OFF
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Dry waste added");
+    }
+    else {
+        // No Waste Detected - Reset Everything
+        servo.write(0);
+        digitalWrite(LED_PIN, LOW);
+        digitalWrite(BUZZER_PIN, LOW);
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Waiting...");
+    }
+
+    delay(1000); // Small delay for stability
+}
